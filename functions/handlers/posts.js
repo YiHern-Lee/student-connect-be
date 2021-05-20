@@ -1,7 +1,7 @@
 const { db } = require('../util/admin');
 
 const getAllPosts = (req, res) => {
-    db.collection("posts").get()
+    db.collection(`forums/${req.params.id}/posts`).get()
         .then(data => {
             let posts = [];
             data.forEach((doc) => {
