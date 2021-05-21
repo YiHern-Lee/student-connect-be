@@ -1,4 +1,4 @@
-const { db } = require('../util/admin');
+const { db, admin } = require('../util/admin');
 
 const getAllForums = (req, res) => {
     db.collection('forums').get()
@@ -13,4 +13,21 @@ const getAllForums = (req, res) => {
         });
 }
 
-module.exports = { getAllForums };
+const createForum = (req, res) => {
+    const newForum = {
+        faculty: req.body.faculty,
+        title: req.body.title,
+        createdAt: admin.firestore.Timestamp.fromDate(new Date()),
+    }
+
+    db.collection('forums')
+        .add(newForum)
+        .then(doc => {
+            res.json({ message: `document ${doc.id} created successfully` });
+        }).catch(err => {
+            res.status(500).json({ error: 'Something went wrong'});
+            console.error(err);
+        })
+}
+
+module.exports = { getAllForums, createForum };

@@ -14,6 +14,7 @@ let db = {
     forums: [
         {
             forumId: '(auto-generated)',
+            faculty: 'School of Computing',
             title: 'CS1101S',
             posts: [
                 {
