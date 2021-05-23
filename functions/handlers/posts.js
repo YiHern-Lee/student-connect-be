@@ -25,7 +25,7 @@ const createPosts = (req, res) => {
         .then(doc => {
             res.json({ message: `document ${doc.id} created successfully` });
         }).catch(err => {
-            res.json.status(500).json({ error: 'Something went wrong.' })
+            res.json.status(500).json({ error: err.code })
         })
 }
 
