@@ -1,4 +1,5 @@
 const { db, admin } = require('../util/admin');
+const { validateForumCreation } = require('../util/validators');
 
 const getAllForums = (req, res) => {
     db.collection('forums').get()
@@ -17,17 +18,50 @@ const createForum = (req, res) => {
     const newForum = {
         faculty: req.body.faculty,
         title: req.body.title,
-        createdAt: admin.firestore.Timestamp.fromDate(new Date()),
+        createdAt: new Date().toISOString(),
     }
 
-    db.collection('forums')
-        .add(newForum)
+    const forumValidation = validateForumCreation(newForum);
+    if (!forumValidation.valid) {
+        return res.status(400).json(forumValidation.errors)
+    }
+
+    db.doc(`/forums/${newForum.title}`).get()
         .then(doc => {
-            res.json({ message: `document ${doc.id} created successfully` });
+            if(doc.exists) {
+                return res.status(400).json({ title: 'A forum of the same title exists' });
+            } else {
+                return db.doc(`/forums/${newForum.title}`).set(newForum);
+            }
+        }).then(() => {
+            res.json({ message: `Forum ${newForum.title} created successfully` });
         }).catch(err => {
             res.status(500).json({ error: 'Something went wrong'});
             console.error(err);
         })
 }
 
-module.exports = { getAllForums, createForum };
+const getForumData = (req, res) => {
+    let forumData = {};
+    db.doc(`forums/${req.params.id}`).get()
+        .then(doc => {
+            forumInfo = {...doc.data()};
+            return db.collection('posts').where('forum', '==', req.params.id).get()
+        }).then(data => {
+            let posts = [];
+            data.forEach(doc => {
+                let postData = {
+                    ...doc.data(),
+                    postId: doc.id
+                };
+                posts.push(postData);
+            });
+            forumData = { forumInfo: forumInfo, posts};
+        }).then(() => {
+            return res.json(forumData);
+        }).catch(err => {
+            return res.status(500).json({ error: err.code })
+        })
+}
+
+module.exports = { getAllForums, createForum, getForumData };

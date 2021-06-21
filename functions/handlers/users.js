@@ -1,77 +1,113 @@
 const { firebaseConfig, admin, db } = require('../util/admin');
+const { consolidateUserData } = require('../util/validators');
 
-const firebase = require('firebase');
-const { validateSignUpData, validateLoginData } = require('../util/validators');
-firebase.initializeApp(firebaseConfig);
+const uploadProfilePicture = (req, res) => {
+    const BusBoy = require('busboy');
+    const path = require('path');
+    const os = require('os');
+    const fs = require('fs');
 
-const createUser = (req, res) => {
-    const newUser = {
-        email: req.body.email,
-        password: req.body.password,
-        confirmPassword: req.body.confirmPassword,
-        handle: req.body.handle,
-    };
+    let imageFileName;
+    let imageUpload = {};
 
-    const userValidation = validateSignUpData(newUser);
-    if (!userValidation.valid) {
-        return res.status(400).json(userValidation.errors)
-    }
-    
-    let token, userId;
-    db.doc(`/users/${newUser.handle}`).get()
-        .then(doc => {
-            if (doc.exists) {
-                return res.status(400).json({ handle: `Handle ${newUser.handle} is already taken.` })
-            } else {
-                return firebase.auth()
-                    .createUserWithEmailAndPassword(newUser.email, newUser.password)
+    const busboy = new BusBoy({ headers: req.headers });
+    busboy.on('file', (fieldname, file, filename, encoding, mimetype) => {
+        if (mimetype !== 'image/jpeg' && mimetype !== 'image/png') {
+            return res.status(400).json({ error: 'Wrong file type uploaded.' });
+        }
+        console.log(fieldname);
+        console.log(filename);
+        console.log(mimetype);
+        const imageExtension = filename.split('.')[filename.split('.').length - 1];
+        imageFileName = `${Math.round(Math.random()*100000000).toString()}.${imageExtension}`;
+        const filepath = path.join(os.tmpdir(), imageFileName);
+        imageUpload = { filepath, mimetype };
+        file.pipe(fs.createWriteStream(filepath));
+    });
+
+    busboy.on('finish', () => {
+        admin.storage().bucket().upload(imageUpload.filepath, {
+            resumable: false,
+            metadata: {
+                metadata: {
+                    contentType: imageUpload.mimetype
+                }
             }
-        }).then(data => {
-            userId = data.user.uid;
-            return data.user.getIdToken();
-        }).then(idToken => {
-            token = idToken;
-            const userCredentials = {
-                handle: newUser.handle,
-                email: newUser.email,
-                createdAt: admin.firestore.Timestamp.fromDate(new Date()),
-                userId
-            };
-            return db.doc(`/users/${newUser.handle}`).set(userCredentials);
         }).then(() => {
-            return res.status(201).json({ token });
+            const userImageUrl = `https://firebasestorage.googleapis.com/v0/b/${firebaseConfig.storageBucket}/o/${imageFileName}?alt=media`
+            return db.doc(`/users/${req.user.username}`).update({ userImageUrl });
+        }).then(() => {
+            return res.json({ message: 'Image uploaded successfully' });
         }).catch(err => {
             console.error(err);
-            if (err.code === 'auth/email-already-in-use') {
-                return res.status(400).json({ email: 'Email is already in use.' })
-            } else {
-                return res.status(500).json({ error: err.code });
-            }
+            return res.status(500).json({ error: err.code });
         })
+    })
+    busboy.end(req.rawBody);
 }
 
-const loginUser = (req, res) => {
-    const user = {
-        email: req.body.email,
-        password: req.body.password,
-    };
+const updateUserDetails = (req, res) => {
+    let userDetails = consolidateUserData(req.body);
 
-    const userValidation = validateLoginData(user);
-    if (!userValidation.valid) {
-        return res.status(400).json(userValidation.errors);
-    }
-
-    firebase.auth().signInWithEmailAndPassword(user.email, user.password)
-        .then(data => {
-            return data.user.getIdToken();
-        }).then(token => {
-            return res.json({ token });
+    db.doc(`/users/${req.user.uid}`).update(userDetails)
+        .then(() => {
+            return res.json({ message: 'Details added successfully' });
         }).catch(err => {
-            console.error(err);
-            if (err.code === 'auth/wrong-password') {
-                return res.status(403).json({ general: 'Wrong credentials, please try again.' });
-            } else return res.status(500).json({ error: err.code });
+            return res.status(500).json({ error: err.code });
         });
 }
 
-module.exports = { createUser, loginUser };
+const getUserData = (req, res) => {
+    let userData = {};
+    db.doc(`/users/${req.user.uid}`).get()
+        .then(doc => {
+            if (doc.exists) {
+                userData.credentials = doc.data();
+            }
+            return db.collection('upvotes')
+                .where('userId', '==', req.user.uid)
+                .get();
+        }).then(data => {
+            userData.upvotes = [];
+            if (!data.empty) {
+                data.forEach(doc => {
+                    userData.upvotes.push(doc.data().postId);
+                });
+            }
+            return db.collection('downvotes')
+                .where('userId', '==', req.user.uid)
+                .get()
+        }).then(data => {
+            userData.downvotes = [];
+            if (!data.empty) {
+                data.forEach(doc => {
+                    userData.downvotes.push(doc.data().postId);
+                });
+            }
+            return db.collection('commentUpvotes')
+            .where('userId', '==', req.user.uid)
+            .get()
+        }).then(data => {
+            userData.commentUpvotes = [];
+            if (!data.empty) {
+                data.forEach(doc => {
+                    userData.commentUpvotes.push(doc.data().commentId);
+                });
+            }
+            return db.collection('commentDownvotes')
+                .where('userId', '==', req.user.uid)
+                .get()
+        }).then(data => {
+            userData.commentDownvotes = [];
+            if (!data.empty) {
+                data.forEach(doc => {
+                    userData.commentDownvotes.push(doc.data().commentId);
+                });
+            }
+            return res.json(userData);
+        }).catch(err => {
+            return res.status(500).json({ error: err.code });
+        })
+}
+
+module.exports = { uploadProfilePicture, updateUserDetails, getUserData }

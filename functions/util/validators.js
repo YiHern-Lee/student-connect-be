@@ -1,13 +1,25 @@
 const { errorMessages } = require("./errorMessages");
 
 const isEmpty = (string) => {
-    return string.trim() === '' ? true : false;
+    if (string)
+        return string.trim() === '' ? true : false;
+    else
+        return true;
 };
 
 const isEmail = (email) => {
-    const regEx = /^(([^<>()\[\]\\.,;:\s@"]+(\.[^<>()\[\]\\.,;:\s@"]+)*)|(".+"))@((\[[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\])|(([a-zA-Z\-0-9]+\.)+[a-zA-Z]{2,}))$/;
-    return email.match(regEx)  ? true : false;
+    if (email) {
+        const regEx = /^(([^<>()\[\]\\.,;:\s@"]+(\.[^<>()\[\]\\.,;:\s@"]+)*)|(".+"))@((\[[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\])|(([a-zA-Z\-0-9]+\.)+[a-zA-Z]{2,}))$/;
+        return email.match(regEx) ? true : false;
+    } else return false;
 };
+
+const hasNoWhiteSpace = (string) => {
+    if (string) {
+        const regEx = /^\S*$/;
+        return string.match(regEx) ? true : false;
+    } else return false;
+}
 
 const validateSignUpData = (data) => {
     let errors = {};
@@ -19,8 +31,12 @@ const validateSignUpData = (data) => {
     }
 
     if (isEmpty(data.password)) errors.password = errorMessages.passwordEmpty;
-    if (data.password !== data.confirmPassword) errors.confirmPassword = errorMessages.confirmPasswordMismatch;
-    if (isEmpty(data.handle)) errors.handle = errorMessages.handleEmpty;
+    if (isEmpty(data.confirmPassword)) {
+        errors.confirmPassword = errorMessages.confirmPasswordEmpty;
+    } else if (data.password !== data.confirmPassword) {
+        errors.confirmPassword = errorMessages.confirmPasswordMismatch;
+    }
+    if (isEmpty(data.username)) errors.username = errorMessages.usernameEmpty;
 
     return {
         errors,
@@ -37,7 +53,7 @@ const validateLoginData = (data) => {
         errors.email = errorMessages.emailInvalid;
     }
 
-    if (isEmpty(data.password)) error.password = errorMessages.passwordEmpty;
+    if (isEmpty(data.password)) errors.password = errorMessages.passwordEmpty;
 
     return {
         errors,
@@ -45,5 +61,39 @@ const validateLoginData = (data) => {
     }
 }
 
+const validateForumCreation = (data) => {
+    let errors = {};
+    if (isEmpty(data.title)) {
+        errors.title = errorMessages.forumTitleEmpty;
+    } else if (!hasNoWhiteSpace(data.title)) {
+        errors.title = errorMessages.forumTitleInvalid;
+    }
 
-module.exports = { validateSignUpData, validateLoginData };
+    if (isEmpty(data.faculty)) errors.faculty = errorMessages.forumFacultyEmpty;
+
+    return {
+        errors,
+        valid: Object.keys(errors).length === 0 ? true : false,
+    }
+
+}
+
+const consolidateUserData = (data) => {
+    const userDetails = {};
+    if (!isEmpty(data.bio)) userDetails.bio = data.bio;
+    if (!isEmpty(data.major)) userDetails.major = data.major;
+
+    return userDetails;
+}
+
+const validatePostCreation = (data) => {
+    let errors = {};
+    if (isEmpty(data.title)) errors.title = errorMessages.postTitleEmpty;
+    if (isEmpty(data.body)) errors.body = errorMessages.postBodyEmpty;
+    return {
+        errors,
+        valid: Object.keys(errors).length === 0 ? true : false
+    }
+}
+
+module.exports = { validateSignUpData, validateLoginData, validateForumCreation, consolidateUserData, validatePostCreation };
