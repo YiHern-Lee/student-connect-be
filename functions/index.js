@@ -4,7 +4,7 @@ const { getForumData, createPosts, getAllForums,
     getPost, upvotePost, downvotePost, createComment,
     removeUpvotePost, removeDownvotePost, upvoteComment, 
     downvoteComment, removeUpvoteComment, removeDownvoteComment,
-    deleteComment, deletePost} = require("./handlers");
+    deleteComment, deletePost, getOtherUserData, followForum, unfollowForum } = require("./handlers");
 const { FBAuth } = require("./util/fbAuth");
 
 const fn = require("firebase-functions");
@@ -65,8 +65,15 @@ app.post('/login', loginUser);
 app.post('/users/image', FBAuth, uploadProfilePicture);
 // Upload user information
 app.post('/users', FBAuth, updateUserDetails);
-// Get own user ydata
+// Get own user data
 app.get('/users', FBAuth, getUserData);
+// Get other user data
+app.get('/users/:id', getOtherUserData);
+
+// Follow a forum
+app.post('/forums/follow', FBAuth, followForum);
+// Unfollow a forum
+app.post('/forums/unfollow', FBAuth, unfollowForum);
 
 exports.api = functions.https.onRequest(app);
 
@@ -136,4 +143,36 @@ exports.onCommentDelete = functions.firestore.document('comments/{commentId}')
                 batch.update(postDocument, { commentCount: postData.commentCount - 1 })
                 return batch.commit();
             }).catch(err => console.error(err));
+});
+
+exports.onUserImageChange = functions.firestore.document('/users/{userId}')
+  .onUpdate((change) => {
+    const userId = change.before.data().userId;
+    const newImageUrl = change.after.data().userImageUrl;
+    if (change.before.data().userImageUrl !== change.after.data().userImageUrl) {
+      console.log('image has changed');
+      const batch = db.batch();
+      return db
+        .collection('posts')
+        .where('userId', '==', userId)
+        .get()
+        .then(data => {
+          data.forEach(doc => {
+            const post = db.doc(`/posts/${doc.id}`);
+            batch.update(post, { userImageUrl: newImageUrl });
+          });
+          return db.collection('comments')
+            .where('userId', '==', userId)
+            .get()
+            .then(data => {
+                data.forEach(doc => {
+                    const comment = db.doc(`/comments/${doc.id}`);
+                    batch.update(comment, { userImageUrl: newImageUrl });
+                });
+                return batch.commit();
+            }).catch(err => {
+                console.error(err);
+            })
+        });
+    } else return true;
 });

@@ -15,9 +15,6 @@ const uploadProfilePicture = (req, res) => {
         if (mimetype !== 'image/jpeg' && mimetype !== 'image/png') {
             return res.status(400).json({ error: 'Wrong file type uploaded.' });
         }
-        console.log(fieldname);
-        console.log(filename);
-        console.log(mimetype);
         const imageExtension = filename.split('.')[filename.split('.').length - 1];
         imageFileName = `${Math.round(Math.random()*100000000).toString()}.${imageExtension}`;
         const filepath = path.join(os.tmpdir(), imageFileName);
@@ -35,7 +32,7 @@ const uploadProfilePicture = (req, res) => {
             }
         }).then(() => {
             const userImageUrl = `https://firebasestorage.googleapis.com/v0/b/${firebaseConfig.storageBucket}/o/${imageFileName}?alt=media`
-            return db.doc(`/users/${req.user.username}`).update({ userImageUrl });
+            return db.doc(`/users/${req.user.uid}`).update({ userImageUrl });
         }).then(() => {
             return res.json({ message: 'Image uploaded successfully' });
         }).catch(err => {
@@ -55,6 +52,35 @@ const updateUserDetails = (req, res) => {
         }).catch(err => {
             return res.status(500).json({ error: err.code });
         });
+}
+
+const getOtherUserData = (req, res) => {
+    let userData = {};
+    db.doc(`/users/${req.params.id}`).get()
+        .then(doc => {
+            if (doc.exists) {
+                userData.userDetails = doc.data()
+            }
+            return db.collection('posts')
+                .where('userId', '==', req.params.id)
+                .orderBy('createdAt', 'desc')
+                .get()
+        }).then(data => {
+            if (!data.empty) {
+                let posts = [];
+                data.forEach(doc => {
+                    posts.push({
+                        ...doc.data(),
+                        postId: doc.id
+                    });
+                });
+                userData.posts = posts;
+                return res.json(userData);
+            }
+        }).catch(err => {
+            console.log(err)
+            return res.status(500).json({ error: err.code });
+        })
 }
 
 const getUserData = (req, res) => {
@@ -104,10 +130,20 @@ const getUserData = (req, res) => {
                     userData.commentDownvotes.push(doc.data().commentId);
                 });
             }
+            return db.collection('follows')
+                .where('userId', '==', req.user.uid)
+                .get()
+        }).then(data => {
+            userData.forumFollows = [];
+            if (!data.empty) {
+                data.forEach(doc => {
+                    userData.forumFollows.push(doc.data().forumId);
+                });
+            }
             return res.json(userData);
         }).catch(err => {
             return res.status(500).json({ error: err.code });
         })
 }
 
-module.exports = { uploadProfilePicture, updateUserDetails, getUserData }
+module.exports = { uploadProfilePicture, updateUserDetails, getUserData, getOtherUserData }

@@ -96,4 +96,24 @@ const deletePost = (req, res) => {
         })
 }
 
+/* const getUserPosts = (req, res) => {
+    db.collection('posts')
+        .where('userId', '==', req.body.userId)
+        .orderBy('createdAt', 'desc')
+        .get()
+        .then(data => {
+            let posts = [];
+            data.forEach(doc => {
+                posts.push({
+                    ...doc.data(),
+                    postId: doc.id
+                });
+            })
+            return res.json(posts);
+        }).catch(err => {
+            console.error(err)
+            res.status(500).json({ error: err.code });
+        });
+} */
+
 module.exports = { createPosts, getAllPosts, getPost, deletePost }
