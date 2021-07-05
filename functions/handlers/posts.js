@@ -1,26 +1,6 @@
 const { db, admin } = require('../util/admin');
 const { validatePostCreation } = require('../util/validators');
 
-const getAllPosts = (req, res) => {
-    db.collection('posts')
-        .orderBy('createdAt', 'desc')
-        .get()
-        .then(data => {
-            let posts = [];
-            data.forEach(doc => {
-                postData = {
-                    ...doc.data(),
-                    postId: doc.id
-                }
-                posts.push(postData)
-            })
-            return res.json(posts);
-        }).catch(err => {
-            console.error(err)
-            res.status(500).json({ error: err.code });
-        });
-}
-
 const createPosts = (req, res) => {
     const newPost = {
         body: req.body.body,
@@ -37,12 +17,27 @@ const createPosts = (req, res) => {
     const postValidation = validatePostCreation(newPost);
     if (!postValidation.valid) return res.status(400).json(postValidation.errors);
 
-    db.collection(`/posts`).add(newPost)
+    const forumRef = db.doc(`/forums/${req.params.id}`);
+    let postId;
+    return forumRef.get()
         .then(doc => {
-            return db.doc(`/posts/${doc.id}`).get();
-        }).then(doc => {
-            return res.json({ postId: doc.id, ...doc.data() })
+            if (!doc.exists) return res.status(400).json({ forum: 'Forum does not exists' });
+            else {
+            const batch = db.batch();
+            const postRef = db.collection('/posts/').doc();
+            postId = postRef.id
+            batch.set(postRef, newPost);
+            batch.update(forumRef, {
+                updatedAt: new Date().toISOString(),
+                numOfPosts: doc.data().numOfPosts + 1
+            })
+            return batch.commit()
+                .then(() => {
+                    res.json({ ...newPost, postId })
+                })
+            }
         }).catch(err => {
+            console.log(err)
             return res.status(500).json({ error: err.code });
         })
 }
@@ -96,24 +91,51 @@ const deletePost = (req, res) => {
         })
 }
 
-/* const getUserPosts = (req, res) => {
-    db.collection('posts')
-        .where('userId', '==', req.body.userId)
-        .orderBy('createdAt', 'desc')
+const getPosts = (req, res) => {
+    if (req.body.startAt) {
+        db.doc(`/posts/${req.body.startAt}`).get()
+            .then(doc => {
+                db.collection('posts')
+                    .orderBy(req.body.filter, 'desc')
+                    .startAfter(doc)
+                    .limit(10)
+                    .get()
+                    .then(data => {
+                        let posts = [];
+                        let index = 0;
+                        data.forEach(doc => {
+                            posts.push({
+                                ...doc.data(),
+                                postId: doc.id,
+                                index: ++index
+                            });
+                        })
+                        return res.json(posts);
+                    }).catch(err => {
+                        console.log(err)
+                        return res.status(500).json({ error: err.code });
+                    })
+            })
+    }
+    else db.collection('posts')
+        .orderBy(req.body.filter, 'desc')
+        .limit(10)
         .get()
         .then(data => {
             let posts = [];
+            let index = 0;
             data.forEach(doc => {
                 posts.push({
                     ...doc.data(),
-                    postId: doc.id
+                    postId: doc.id,
+                    index: ++index
                 });
             })
             return res.json(posts);
         }).catch(err => {
-            console.error(err)
-            res.status(500).json({ error: err.code });
-        });
-} */
+            console.log(err)
+            return res.status(500).json({ error: err.code });
+        })
+}
 
-module.exports = { createPosts, getAllPosts, getPost, deletePost }
+module.exports = { createPosts, getPost, deletePost, getPosts }

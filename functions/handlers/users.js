@@ -66,17 +66,14 @@ const getOtherUserData = (req, res) => {
                 .orderBy('createdAt', 'desc')
                 .get()
         }).then(data => {
-            if (!data.empty) {
-                let posts = [];
-                data.forEach(doc => {
-                    posts.push({
-                        ...doc.data(),
-                        postId: doc.id
-                    });
+            userData.posts = [];
+            data.forEach(doc => {
+                userData.posts.push({
+                    ...doc.data(),
+                    postId: doc.id
                 });
-                userData.posts = posts;
-                return res.json(userData);
-            }
+            })
+            return res.json(userData);
         }).catch(err => {
             console.log(err)
             return res.status(500).json({ error: err.code });
@@ -95,55 +92,73 @@ const getUserData = (req, res) => {
                 .get();
         }).then(data => {
             userData.upvotes = [];
-            if (!data.empty) {
-                data.forEach(doc => {
-                    userData.upvotes.push(doc.data().postId);
-                });
-            }
+            data.forEach(doc => {
+                userData.upvotes.push(doc.data().postId);
+            });
             return db.collection('downvotes')
                 .where('userId', '==', req.user.uid)
                 .get()
         }).then(data => {
             userData.downvotes = [];
-            if (!data.empty) {
-                data.forEach(doc => {
-                    userData.downvotes.push(doc.data().postId);
-                });
-            }
+            data.forEach(doc => {
+                userData.downvotes.push(doc.data().postId);
+            });
             return db.collection('commentUpvotes')
             .where('userId', '==', req.user.uid)
             .get()
         }).then(data => {
             userData.commentUpvotes = [];
-            if (!data.empty) {
-                data.forEach(doc => {
-                    userData.commentUpvotes.push(doc.data().commentId);
-                });
-            }
+            data.forEach(doc => {
+                userData.commentUpvotes.push(doc.data().commentId);
+            });
             return db.collection('commentDownvotes')
                 .where('userId', '==', req.user.uid)
                 .get()
         }).then(data => {
             userData.commentDownvotes = [];
-            if (!data.empty) {
-                data.forEach(doc => {
-                    userData.commentDownvotes.push(doc.data().commentId);
-                });
-            }
+            data.forEach(doc => {
+                userData.commentDownvotes.push(doc.data().commentId);
+            });
             return db.collection('follows')
                 .where('userId', '==', req.user.uid)
                 .get()
         }).then(data => {
             userData.forumFollows = [];
-            if (!data.empty) {
-                data.forEach(doc => {
-                    userData.forumFollows.push(doc.data().forumId);
-                });
-            }
+            data.forEach(doc => {
+                userData.forumFollows.push(doc.data().forumId);
+            });
+            return db.collection('notifications')
+                .where('recipient', '==', req.user.username)
+                .orderBy('createdAt', 'desc')
+                .limit(10)
+                .get();
+        }).then(data => {
+            userData.notifications = [];
+            data.forEach(doc => {
+                userData.notifications.push({ ...doc.data(), 
+                    notificationId: doc.id 
+                })
+            })
             return res.json(userData);
         }).catch(err => {
+            console.error(err)
             return res.status(500).json({ error: err.code });
         })
 }
 
-module.exports = { uploadProfilePicture, updateUserDetails, getUserData, getOtherUserData }
+const markNotificationsRead = (req, res) => {
+    let batch = db.batch();
+    req.body.notifications.forEach(notificationId => {
+        const notification = db.doc(`/notifications/${notificationId}`);
+        batch.update(notification, { read: true });
+    });
+    batch.commit()
+        .then(() => {
+            return res.json({ message: 'Notifications marked read' });
+        }).catch(err => {
+            console.error(err);
+            return res.status(500).json({ error: err.code });
+        })
+}
+
+module.exports = { uploadProfilePicture, updateUserDetails, getUserData, getOtherUserData, markNotificationsRead }

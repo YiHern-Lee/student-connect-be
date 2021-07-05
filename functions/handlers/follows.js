@@ -17,7 +17,8 @@ const followForum = (req, res) => {
                     }
                     const newFollow = {
                         userId: req.user.uid,
-                        forumId: req.body.forumId
+                        forumId: req.body.forumId,
+                        username: req.user.username
                     }
                     db.collection('follows').add(newFollow)
                         .then(doc => {

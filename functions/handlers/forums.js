@@ -14,6 +14,43 @@ const getAllForums = (req, res) => {
         });
 }
 
+const getForums = (req, res) => {
+    if (req.body.startAt) {
+        db.doc(`/forums/${req.body.startAt}`).get()
+            .then(doc => {
+                db.collection('forums')
+                    .orderBy(req.body.filter, 'desc')
+                    .startAfter(doc)
+                    .limit(req.body.limit)
+                    .get()
+                    .then(data => {
+                        let forums = [];
+                        data.forEach(doc => {
+                            forums.push(doc.data());
+                        })
+                        return res.json(forums);
+                    }).catch(err => {
+                        console.log(err)
+                        return res.status(500).json({ error: err.code });
+                    })
+            })
+    }
+    else db.collection('forums')
+        .orderBy(req.body.filter, 'desc')
+        .limit(req.body.limit)
+        .get()
+        .then(data => {
+            let forums = [];
+            data.forEach(doc => {
+                forums.push(doc.data());
+            })
+            return res.json(forums);
+        }).catch(err => {
+            console.log(err)
+            return res.status(500).json({ error: err.code });
+        })
+}
+
 const createForum = (req, res) => {
     const newForum = {
         faculty: req.body.faculty,
@@ -34,7 +71,8 @@ const createForum = (req, res) => {
                 return db.doc(`/forums/${newForum.title}`).set(newForum);
             }
         }).then(() => {
-            res.json({ message: `Forum ${newForum.title} created successfully` });
+            console.log(newForum.title)
+            res.json(newForum.title);
         }).catch(err => {
             res.status(500).json({ error: 'Something went wrong'});
             console.error(err);
@@ -64,4 +102,4 @@ const getForumData = (req, res) => {
         })
 }
 
-module.exports = { getAllForums, createForum, getForumData };
+module.exports = { getAllForums, createForum, getForumData, getForums };

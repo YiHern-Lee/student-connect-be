@@ -1,10 +1,12 @@
 const { getForumData, createPosts, getAllForums, 
-    createForum, createUser, loginUser, getAllPosts, 
+    createForum, createUser, loginUser, 
     uploadProfilePicture, updateUserDetails, getUserData, 
     getPost, upvotePost, downvotePost, createComment,
     removeUpvotePost, removeDownvotePost, upvoteComment, 
     downvoteComment, removeUpvoteComment, removeDownvoteComment,
-    deleteComment, deletePost, getOtherUserData, followForum, unfollowForum } = require("./handlers");
+    deleteComment, deletePost, getOtherUserData, 
+    followForum, unfollowForum, markNotificationsRead, 
+    getPosts, getForums} = require("./handlers");
 const { FBAuth } = require("./util/fbAuth");
 
 const fn = require("firebase-functions");
@@ -20,7 +22,7 @@ app.use(cors());
 // Create new post in a forum
 app.post('/posts/:id', FBAuth, createPosts);
 // Get all posts
-app.get('/posts', getAllPosts);
+app.post('/posts', getPosts);
 // Get single post
 app.get('/posts/:id', getPost);
 // Delete post
@@ -50,9 +52,9 @@ app.post('/posts/:id/downvote', FBAuth, downvotePost);
 app.post('/posts/:id/undownvote', FBAuth, removeDownvotePost);
 
 // Retrieve all forums
-app.get('/forums', getAllForums);
+app.post('/forums', getForums);
 // Create a new forum
-app.post('/forums', FBAuth, createForum);
+app.post('/forums/create', FBAuth, createForum);
 // Retrieve all posts on forum
 app.get('/forums/:id', getForumData);
 
@@ -69,6 +71,8 @@ app.post('/users', FBAuth, updateUserDetails);
 app.get('/users', FBAuth, getUserData);
 // Get other user data
 app.get('/users/:id', getOtherUserData);
+// Mark notifications as read
+app.post('/notifications', FBAuth, markNotificationsRead);
 
 // Follow a forum
 app.post('/forums/follow', FBAuth, followForum);
@@ -79,35 +83,41 @@ exports.api = functions.https.onRequest(app);
 
 exports.onPostDelete = functions.firestore.document('posts/{postId}')
     .onDelete((snapshot, context) => {
+        const { forum } = snapshot.data();
+        const forumDoc = db.doc(`/forums/${forum}`)
         const postId = context.params.postId;
         const batch = db.batch();
         return db.collection('upvotes')
             .where('postId', '==', postId)
             .get()
             .then(data => {
-                if (!data.empty) {
-                    data.forEach(doc => {
-                        batch.delete(doc.ref)
-                    });
-                }
+                data.forEach(doc => {
+                    batch.delete(doc.ref)
+                });
                 return db.collection('downvotes')
                     .where('postId', '==', postId)
                     .get()
             }).then(data => {
-                if (!data.empty) {
-                    data.forEach(doc => {
-                        batch.delete(doc.ref)
-                    });
-                }
+                data.forEach(doc => {
+                    batch.delete(doc.ref)
+                });
                 return db.collection('comments')
                     .where('postId', '==', postId)
                     .get()
             }).then(data => {
-                if (!data.empty) {
-                    data.forEach(doc => {
-                        batch.delete(doc.ref);
-                    });
-                }
+                data.forEach(doc => {
+                    batch.delete(doc.ref);
+                });
+                return db.collection('notifications')
+                    .where('postId', '==', postId)
+                    .get()
+            }).then(data => {
+                data.forEach(doc => {
+                    batch.delete(doc.ref)
+                });
+                return forumDoc.get()
+            }).then(doc => {
+                batch.update(forumDoc, { numOfPosts: doc.data().numOfPosts - 1 });
                 return batch.commit();
             }).catch(err => console.error(err));
 });
@@ -123,24 +133,27 @@ exports.onCommentDelete = functions.firestore.document('comments/{commentId}')
             .where('commentId', '==', commentId)
             .get()
             .then(data => {
-                if (!data.empty) {
-                    data.forEach(doc => {
-                        batch.delete(doc.ref)
-                    });
-                }
+                data.forEach(doc => {
+                    batch.delete(doc.ref)
+                });
                 return db.collection('commentDownvotes')
                     .where('commentId', '==', commentId)
                     .get()
             }).then(data => {
-                if (!data.empty) {
                     data.forEach(doc => {
                         batch.delete(doc.ref);
-                    });
-                }
+                    });      
                 return postDocument.get();
             }).then(doc => {
                 postData = doc.data();
                 batch.update(postDocument, { commentCount: postData.commentCount - 1 })
+                return db.collection('notifications')
+                    .where('commentId', '==', commentId)
+                    .get()
+            }).then(data => {
+                data.forEach(doc => {
+                    batch.delete(doc.ref);
+                });
                 return batch.commit();
             }).catch(err => console.error(err));
 });
@@ -175,4 +188,64 @@ exports.onUserImageChange = functions.firestore.document('/users/{userId}')
             })
         });
     } else return true;
+});
+
+exports.createNotificationOnPost = functions.firestore.document('/posts/{postId}')
+    .onCreate((snapshot, context) => {
+        let postData;
+        return db.doc(`/posts/${context.params.postId}`).get()
+            .then(doc => {
+                if (doc.exists) {
+                    postData = { ...doc.data(), postId: doc.id};
+                    return db.collection(`/follows`)
+                        .where('forumId', '==', snapshot.data().forum)
+                        .get()
+                        .then(data => {
+                            const batch = db.batch();
+                            data.forEach(doc => {
+                                if (doc.data().username !== postData.username) {
+                                    const newNotification = {
+                                        createdAt: new Date().toISOString(),
+                                        recipient: doc.data().username,
+                                        sender: postData.username,
+                                        type: 'post',
+                                        read: false,
+                                        postId: postData.postId
+                                    }
+                                    const notificationDoc = db.collection('notifications').doc();
+                                    batch.set(notificationDoc, newNotification);
+                                }
+                            })
+                            return batch.commit();
+                        })
+                } else {
+                    return;
+                }
+            }).catch(err => {
+                console.error(err);
+            })
+        
+});
+
+exports.createNotificationsOnComment = functions.firestore.document('/comments/{commentId}')
+    .onCreate((snapshot, context) => {
+        const commentData = snapshot.data();
+        return db.doc(`/posts/${commentData.postId}`)
+            .get()
+            .then(doc => {
+                if (doc.exists && doc.data().username !== commentData.username) {
+                    const newNotification = {
+                        createdAt: new Date().toISOString(),
+                        recipient: doc.data().username,
+                        sender: commentData.username,
+                        type: 'comment',
+                        read: false,
+                        postId: doc.id,
+                        commentId: context.params.commentId
+                    }
+                    return db.collection('/notifications').doc().set(newNotification);
+                } else return;
+            }).catch(err => {
+                console.error(err);
+            })
 });

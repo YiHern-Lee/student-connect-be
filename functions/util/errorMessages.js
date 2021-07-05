@@ -2,6 +2,7 @@ const errorMessages = {
     emailEmpty: 'Email must not be empty',
     emailInvalid: 'Must be a valid email address',
     passwordEmpty: 'Password must not be empty',
+    passWordTooShort: 'Password must be 6 or more characters long',
     confirmPasswordEmpty: 'Confirm password must not be empty',
     confirmPasswordMismatch: 'Please make sure that you retyped the correct password',
     usernameEmpty: 'Username must not be empty',

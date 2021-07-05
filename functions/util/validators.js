@@ -1,6 +1,7 @@
 const { errorMessages } = require("./errorMessages");
 
 const isEmpty = (string) => {
+    console.log(string)
     if (string)
         return string.trim() === '' ? true : false;
     else
@@ -31,6 +32,7 @@ const validateSignUpData = (data) => {
     }
 
     if (isEmpty(data.password)) errors.password = errorMessages.passwordEmpty;
+    if (data.password.length < 6) errors.password = errorMessages.passWordTooShort;
     if (isEmpty(data.confirmPassword)) {
         errors.confirmPassword = errorMessages.confirmPasswordEmpty;
     } else if (data.password !== data.confirmPassword) {
@@ -80,6 +82,8 @@ const validateForumCreation = (data) => {
 
 const consolidateUserData = (data) => {
     const userDetails = {};
+    console.log(data.bio)
+    console.log(data.major)
     if (!isEmpty(data.bio)) userDetails.bio = data.bio;
     if (!isEmpty(data.major)) userDetails.major = data.major;
 
