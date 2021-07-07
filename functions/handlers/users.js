@@ -55,29 +55,55 @@ const updateUserDetails = (req, res) => {
 }
 
 const getOtherUserData = (req, res) => {
-    let userData = {};
-    db.doc(`/users/${req.params.id}`).get()
-        .then(doc => {
-            if (doc.exists) {
-                userData.userDetails = doc.data()
-            }
-            return db.collection('posts')
-                .where('userId', '==', req.params.id)
-                .orderBy('createdAt', 'desc')
-                .get()
-        }).then(data => {
-            userData.posts = [];
-            data.forEach(doc => {
-                userData.posts.push({
-                    ...doc.data(),
-                    postId: doc.id
-                });
-            })
-            return res.json(userData);
-        }).catch(err => {
-            console.log(err)
-            return res.status(500).json({ error: err.code });
+    if (req.body.startAfter) 
+        db.doc(`/posts/${req.body.startAfter}`).get()
+            .then(doc => {
+                db.collection('posts')
+                    .where('userId', '==', req.params.id)
+                    .orderBy(req.body.filter, 'desc')
+                    .startAfter(doc)
+                    .limit(10)
+                    .get()
+                    .then(data => {
+                        let posts = [];
+                        data.forEach(doc => {
+                            posts.push({
+                                ...doc.data(),
+                                postId: doc.id,
+                            });
+                        })
+                        return res.json(posts);
+                    }).catch(err => {
+                        console.log(err)
+                        return res.status(500).json({ error: err.code });
+                    })
         })
+    else {
+        let userData = {};
+        db.doc(`/users/${req.params.id}`).get()
+            .then(doc => {
+                if (doc.exists) {
+                    userData.userDetails = doc.data()
+                }
+                return db.collection('posts')
+                    .where('userId', '==', req.params.id)
+                    .orderBy('createdAt', 'desc')
+                    .limit(10)
+                    .get()
+            }).then(data => {
+                userData.posts = [];
+                data.forEach(doc => {
+                    userData.posts.push({
+                        ...doc.data(),
+                        postId: doc.id
+                    });
+                })
+                return res.json(userData);
+            }).catch(err => {
+                console.log(err)
+                return res.status(500).json({ error: err.code });
+            })
+    }
 }
 
 const getUserData = (req, res) => {

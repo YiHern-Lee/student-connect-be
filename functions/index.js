@@ -1,4 +1,4 @@
-const { getForumData, createPosts, getAllForums, 
+const { createPosts, getAllForums, 
     createForum, createUser, loginUser, 
     uploadProfilePicture, updateUserDetails, getUserData, 
     getPost, upvotePost, downvotePost, createComment,
@@ -6,7 +6,7 @@ const { getForumData, createPosts, getAllForums,
     downvoteComment, removeUpvoteComment, removeDownvoteComment,
     deleteComment, deletePost, getOtherUserData, 
     followForum, unfollowForum, markNotificationsRead, 
-    getPosts, getForums} = require("./handlers");
+    getPosts, getForums, createGroup, getForumPosts} = require("./handlers");
 const { FBAuth } = require("./util/fbAuth");
 
 const fn = require("firebase-functions");
@@ -56,7 +56,8 @@ app.post('/forums', getForums);
 // Create a new forum
 app.post('/forums/create', FBAuth, createForum);
 // Retrieve all posts on forum
-app.get('/forums/:id', getForumData);
+/* app.get('/forums/:id', getForumData); */
+app.post('/forums/posts/:id', getForumPosts);
 
 // User sign up
 app.post('/signup', createUser);
@@ -70,7 +71,7 @@ app.post('/users', FBAuth, updateUserDetails);
 // Get own user data
 app.get('/users', FBAuth, getUserData);
 // Get other user data
-app.get('/users/:id', getOtherUserData);
+app.post('/users/posts/:id', getOtherUserData);
 // Mark notifications as read
 app.post('/notifications', FBAuth, markNotificationsRead);
 
@@ -78,6 +79,9 @@ app.post('/notifications', FBAuth, markNotificationsRead);
 app.post('/forums/follow', FBAuth, followForum);
 // Unfollow a forum
 app.post('/forums/unfollow', FBAuth, unfollowForum);
+
+// Create a group
+app.post('/groups/create', FBAuth, createGroup);
 
 exports.api = functions.https.onRequest(app);
 

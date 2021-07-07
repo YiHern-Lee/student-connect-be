@@ -9,6 +9,8 @@ const errorMessages = {
     forumTitleEmpty: 'Forum title must not be empty',
     forumTitleInvalid: 'Forum title must not contain whitespace',
     forumFacultyEmpty: 'Forum faculty must not be empty',
+    groupTitleEmpty: 'Group title must not be empty',
+    groupTitleInvalid: 'Group title must not contain whitespace',
     postTitleEmpty: 'Post title must not be empty',
     postBodyEmpty: 'Post body must not be empty'
 }

@@ -77,7 +77,20 @@ const validateForumCreation = (data) => {
         errors,
         valid: Object.keys(errors).length === 0 ? true : false,
     }
+}
 
+const validateGroupCreation = (data) => {
+    let errors = {};
+    if (isEmpty(data.title)) {
+        errors.title = errorMessages.groupTitleEmpty;
+    } else if (!hasNoWhiteSpace(data.title)) {
+        errors.title = errorMessages.groupTitleInvalid;
+    }
+
+    return {
+        errors,
+        valid: Object.keys(errors).length === 0 ? true : false,
+    }
 }
 
 const consolidateUserData = (data) => {
@@ -100,4 +113,5 @@ const validatePostCreation = (data) => {
     }
 }
 
-module.exports = { validateSignUpData, validateLoginData, validateForumCreation, consolidateUserData, validatePostCreation };
+module.exports = { validateSignUpData, validateLoginData, validateForumCreation, 
+    consolidateUserData, validatePostCreation, validateGroupCreation };

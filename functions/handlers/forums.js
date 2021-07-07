@@ -15,8 +15,8 @@ const getAllForums = (req, res) => {
 }
 
 const getForums = (req, res) => {
-    if (req.body.startAt) {
-        db.doc(`/forums/${req.body.startAt}`).get()
+    if (req.body.startAfter) {
+        db.doc(`/forums/${req.body.startAfter}`).get()
             .then(doc => {
                 db.collection('forums')
                     .orderBy(req.body.filter, 'desc')
@@ -56,6 +56,8 @@ const createForum = (req, res) => {
         faculty: req.body.faculty,
         title: req.body.title,
         createdAt: new Date().toISOString(),
+        numOfPosts: 0,
+        updatedAt: new Date().toISOString()
     }
 
     const forumValidation = validateForumCreation(newForum);
@@ -71,7 +73,6 @@ const createForum = (req, res) => {
                 return db.doc(`/forums/${newForum.title}`).set(newForum);
             }
         }).then(() => {
-            console.log(newForum.title)
             res.json(newForum.title);
         }).catch(err => {
             res.status(500).json({ error: 'Something went wrong'});
@@ -79,27 +80,63 @@ const createForum = (req, res) => {
         })
 }
 
-const getForumData = (req, res) => {
-    let forumData = {};
-    db.doc(`forums/${req.params.id}`).get()
-        .then(doc => {
-            forumInfo = {...doc.data()};
-            return db.collection('posts').where('forum', '==', req.params.id).get()
-        }).then(data => {
-            let posts = [];
-            data.forEach(doc => {
-                let postData = {
-                    ...doc.data(),
-                    postId: doc.id
+const getForumPosts = (req, res) => {
+    if (req.body.startAfter)
+        db.doc(`/posts/${req.body.startAfter}`).get()
+            .then(doc => {
+                db.collection('posts')
+                    .where('forum', '==', req.params.id)
+                    .orderBy(req.body.filter, 'desc')
+                    .startAfter(doc)
+                    .limit(10)
+                    .get()
+                    .then(data => {
+                        let posts = [];
+                        data.forEach(doc => {
+                            posts.push({
+                                ...doc.data(),
+                                postId: doc.id,
+                            });
+                        })
+                        return res.json(posts);
+                    }).catch(err => {
+                        console.log(err)
+                        return res.status(500).json({ error: err.code });
+                    })
+            })
+    else { 
+        let forumData = {};
+        db.doc(`/forums/${req.params.id}`)
+            .get()
+            .then(doc => {
+                forumData = {
+                    forumInfo: doc.data()
                 };
-                posts.push(postData);
-            });
-            forumData = { forumInfo: forumInfo, posts};
-        }).then(() => {
-            return res.json(forumData);
-        }).catch(err => {
-            return res.status(500).json({ error: err.code })
+                return db.collection('posts')
+                    .where('forum', '==', req.params.id)
+                    .orderBy(req.body.filter, 'desc')
+                    .limit(10)
+                    .get()
+                    .then(data => {
+                        let posts = [];
+                        data.forEach(doc => {
+                            posts.push({
+                                ...doc.data(),
+                                postId: doc.id,
+                            });
+                        });
+                        forumData = {
+                            ...forumData,
+                            posts
+                        };
+                    });
+            }).then(() => {
+                return res.json(forumData);
+            }).catch(err => {
+            console.log(err)
+            return res.status(500).json({ error: err.code });
         })
+    }
 }
 
-module.exports = { getAllForums, createForum, getForumData, getForums };
+module.exports = { getAllForums, createForum, getForums, getForumPosts };

@@ -92,8 +92,8 @@ const deletePost = (req, res) => {
 }
 
 const getPosts = (req, res) => {
-    if (req.body.startAt) {
-        db.doc(`/posts/${req.body.startAt}`).get()
+    if (req.body.startAfter) {
+        db.doc(`/posts/${req.body.startAfter}`).get()
             .then(doc => {
                 db.collection('posts')
                     .orderBy(req.body.filter, 'desc')
@@ -102,12 +102,10 @@ const getPosts = (req, res) => {
                     .get()
                     .then(data => {
                         let posts = [];
-                        let index = 0;
                         data.forEach(doc => {
                             posts.push({
                                 ...doc.data(),
                                 postId: doc.id,
-                                index: ++index
                             });
                         })
                         return res.json(posts);
@@ -123,12 +121,10 @@ const getPosts = (req, res) => {
         .get()
         .then(data => {
             let posts = [];
-            let index = 0;
             data.forEach(doc => {
                 posts.push({
                     ...doc.data(),
                     postId: doc.id,
-                    index: ++index
                 });
             })
             return res.json(posts);
