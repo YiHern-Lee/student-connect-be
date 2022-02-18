@@ -1,7 +1,7 @@
 const { errorMessages } = require("./errorMessages");
+const { modules } = require("./modules");
 
 const isEmpty = (string) => {
-    console.log(string)
     if (string)
         return string.trim() === '' ? true : false;
     else
@@ -14,6 +14,12 @@ const isEmail = (email) => {
         return email.match(regEx) ? true : false;
     } else return false;
 };
+
+const isModule = (module) => {
+    if (module) {
+        return modules.includes(module);
+    } else return false;
+}
 
 const hasNoWhiteSpace = (string) => {
     if (string) {
@@ -95,8 +101,6 @@ const validateGroupCreation = (data) => {
 
 const consolidateUserData = (data) => {
     const userDetails = {};
-    console.log(data.bio)
-    console.log(data.major)
     if (!isEmpty(data.bio)) userDetails.bio = data.bio;
     if (!isEmpty(data.major)) userDetails.major = data.major;
 
@@ -113,5 +117,19 @@ const validatePostCreation = (data) => {
     }
 }
 
+const validateMarketPostCreation = (data) => {
+    let errors = {};
+    if (isEmpty(data.title)) errors.title = errorMessages.postTitleEmpty;
+    if (isEmpty(data.body)) errors.body = errorMessages.postBodyEmpty;
+    if (isEmpty(data.imageUrl)) errors.imageUrl = errorMessages.marketPostNoImage;
+    if (isEmpty(data.price)) errors.price = errorMessages.marketPostPriceEmpty;
+    if (isEmpty(data.module)) errors.module = errorMessages.moduleEmpty;
+    else if (!isModule(data.module)) errors.module = errorMessages.moduleInvalid;
+    return {
+        errors,
+        valid: Object.keys(errors).length === 0 ? true : false
+    }
+}
+
 module.exports = { validateSignUpData, validateLoginData, validateForumCreation, 
-    consolidateUserData, validatePostCreation, validateGroupCreation };
+    consolidateUserData, validatePostCreation, validateGroupCreation, validateMarketPostCreation };

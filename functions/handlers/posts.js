@@ -60,16 +60,17 @@ const getPost = (req, res) => {
                 .orderBy('createdAt', 'desc')
                 .where('postId', '==', doc.id)
                 .get()
-        }).then(data => {
-            postData.comments = [];
-            data.forEach(doc => {
-                let commentData = {
-                    ...doc.data(),
-                    commentId: doc.id
-                }
-                postData.comments.push(commentData);
-            })
-            return res.json(postData)
+                .then(data => {
+                    postData.comments = [];
+                    data.forEach(doc => {
+                        let commentData = {
+                            ...doc.data(),
+                            commentId: doc.id
+                        }
+                        postData.comments.push(commentData);
+                    })
+                    return res.json(postData)
+                })
         }).catch(err => {
             return res.status(500).json({ error: err.code })
         })
@@ -96,7 +97,7 @@ const getPosts = (req, res) => {
         db.doc(`/posts/${req.body.startAfter}`).get()
             .then(doc => {
                 db.collection('posts')
-                    .orderBy(req.body.filter, 'desc')
+                    .orderBy(req.body.sort, 'desc')
                     .startAfter(doc)
                     .limit(10)
                     .get()
@@ -116,7 +117,7 @@ const getPosts = (req, res) => {
             })
     }
     else db.collection('posts')
-        .orderBy(req.body.filter, 'desc')
+        .orderBy(req.body.sort, 'desc')
         .limit(10)
         .get()
         .then(data => {

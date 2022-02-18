@@ -11,7 +11,7 @@ const uploadProfilePicture = (req, res) => {
     let imageUpload = {};
 
     const busboy = new BusBoy({ headers: req.headers });
-    busboy.on('file', (fieldname, file, filename, encoding, mimetype) => {
+    busboy.on('file', (_, file, filename, __, mimetype) => {
         if (mimetype !== 'image/jpeg' && mimetype !== 'image/png') {
             return res.status(400).json({ error: 'Wrong file type uploaded.' });
         }

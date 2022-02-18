@@ -16,10 +16,31 @@ const getAllForums = (req, res) => {
 
 const getForums = (req, res) => {
     if (req.body.startAfter) {
+        if (req.body.filter) {
+            db.doc(`/forums/${req.body.startAfter}`).get()
+            .then(doc => {
+                db.collection('forums')
+                    .orderBy(req.body.sort, req.body.dir)
+                    .where('faculty', '==', req.body.filter)
+                    .startAfter(doc)
+                    .limit(req.body.limit)
+                    .get()
+                    .then(data => {
+                        let forums = [];
+                        data.forEach(doc => {
+                            forums.push(doc.data());
+                        })
+                        return res.json(forums);
+                    }).catch(err => {
+                        console.log(err)
+                        return res.status(500).json({ error: err.code });
+                    })
+            })
+        } else 
         db.doc(`/forums/${req.body.startAfter}`).get()
             .then(doc => {
                 db.collection('forums')
-                    .orderBy(req.body.filter, 'desc')
+                    .orderBy(req.body.sort, req.body.dir)
                     .startAfter(doc)
                     .limit(req.body.limit)
                     .get()
@@ -35,20 +56,39 @@ const getForums = (req, res) => {
                     })
             })
     }
-    else db.collection('forums')
-        .orderBy(req.body.filter, 'desc')
-        .limit(req.body.limit)
-        .get()
-        .then(data => {
-            let forums = [];
-            data.forEach(doc => {
-                forums.push(doc.data());
+    else {
+        if (req.body.filter) {
+            db.collection('forums')
+                .orderBy(req.body.sort, req.body.dir)
+                .where('faculty', '==' ,req.body.filter)
+                .limit(req.body.limit)
+                .get()
+                .then(data => {
+                    let forums = [];
+                    data.forEach(doc => {
+                        forums.push(doc.data());
+                    })
+                    return res.json(forums);
+                }).catch(err => {
+                    console.log(err)
+                    return res.status(500).json({ error: err.code });
+                })
+        } else
+        db.collection('forums')
+            .orderBy(req.body.sort, req.body.dir)
+            .limit(req.body.limit)
+            .get()
+            .then(data => {
+                let forums = [];
+                data.forEach(doc => {
+                    forums.push(doc.data());
+                })
+                return res.json(forums);
+            }).catch(err => {
+                console.log(err)
+                return res.status(500).json({ error: err.code });
             })
-            return res.json(forums);
-        }).catch(err => {
-            console.log(err)
-            return res.status(500).json({ error: err.code });
-        })
+    }
 }
 
 const createForum = (req, res) => {
@@ -81,12 +121,13 @@ const createForum = (req, res) => {
 }
 
 const getForumPosts = (req, res) => {
+    console.log(req.body)
     if (req.body.startAfter)
         db.doc(`/posts/${req.body.startAfter}`).get()
             .then(doc => {
                 db.collection('posts')
                     .where('forum', '==', req.params.id)
-                    .orderBy(req.body.filter, 'desc')
+                    .orderBy(req.body.sort, req.body.dir)
                     .startAfter(doc)
                     .limit(10)
                     .get()
@@ -114,7 +155,7 @@ const getForumPosts = (req, res) => {
                 };
                 return db.collection('posts')
                     .where('forum', '==', req.params.id)
-                    .orderBy(req.body.filter, 'desc')
+                    .orderBy(req.body.sort, req.body.dir)
                     .limit(10)
                     .get()
                     .then(data => {
